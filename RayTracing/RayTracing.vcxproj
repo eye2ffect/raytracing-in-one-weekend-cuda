@@ -81,10 +81,16 @@
     <CudaCompile Include="kernel.cu" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Color.h" />
-    <ClInclude Include="Hittable.h" />
+    <ClInclude Include="camera.h" />
+    <ClInclude Include="color.h" />
+    <ClInclude Include="hittable.h" />
     <ClInclude Include="hittable_list.h" />
+    <ClInclude Include="interval.h" />
+    <ClInclude Include="Lambertian.h" />
+    <ClInclude Include="material.h" />
+    <ClInclude Include="Metal.h" />
     <ClInclude Include="Ray.h" />
+    <ClInclude Include="rtweekend.h" />
     <ClInclude Include="sphere.h" />
     <ClInclude Include="Vec3.h" />
   </ItemGroup>

@@ -1,91 +1,84 @@
-﻿#include "Color.h"
-#include "Ray.h"
-#include "Vec3.h"
+﻿#include "rtweekend.h"
 
-#include <iostream>
+#include "camera.h"
+#include "hittable.h"
+#include "hittable_list.h"
+#include "sphere.h"
+#include "lambertian.h"
+#include "metal.h"
+#include "material.h"
 
-double HitSphere(const Point3& center, double radius, const Ray& ray)
-{
-    Vec3 oc = center - ray.Origin();
-    auto a = ray.Direction().LengthSquared();
-    auto h = Dot(ray.Direction(), oc);
-    auto c = oc.LengthSquared() - radius * radius;
-    auto discriminant = h * h - a * c;
-
-    if (discriminant < 0)
-    {
-        return -1.0;
-    }
-
-    return (h - std::sqrt(discriminant)) / a;
-}
-
-Color RayColor(const Ray& ray)
-{
-    auto t = HitSphere(Point3(0.0, 0.0, -1.0), 0.5, ray);
-    if (t > 0.0)
-    {
-        Vec3 surfaceNormal = UnitVector(ray.At(t) - Vec3(0.0, 0.0, -1.0));
-        return 0.5 * Color(
-            surfaceNormal.X() + 1.0,
-            surfaceNormal.Y() + 1.0,
-            surfaceNormal.Z() + 1.0
-        );
-    }
-
-    Vec3 unitDirection = UnitVector(ray.Direction());
-    auto a = 0.5 * (unitDirection.Y() + 1.0);
-
-    return (1.0 - a) * Color(1.0, 1.0, 1.0)
-        + a * Color(0.5, 0.7, 1.0);
-}
-
+using namespace std;
 
 int main()
 {
-    // Image
-    auto aspectRatio = 16.0 / 9.0;
-    int imageWidth = 400;
+	HittableList world;
 
-    // 이미지 높이를 계산하고 최소 1이 되도록 합니다.
-    int imageHeight = int(imageWidth / aspectRatio);
-    imageHeight = (imageHeight < 1) ? 1 : imageHeight;
+	auto groundMaterial = std::make_shared<Lambertian>(Color(0.5, 0.5, 0.5));
+	world.Add(std::make_shared<Sphere>(Point3(0.0, -1000.0, 0.0), 1000.0, groundMaterial));
 
-    // Camera
-    auto focalLength = 1.0;
-    auto viewportHeight = 2.0;
-    auto viewportWidth = viewportHeight * (double(imageWidth) / imageHeight);
-    auto cameraCenter = Point3(0, 0, 0);
+	for (int gridX = -11; gridX < 11; gridX++)
+	{
+		for (int gridZ = -11; gridZ < 11; gridZ++)
+		{
+			const double materialSelector = RandomDouble();
 
-    // 뷰포트의 수평 및 수직 가장자리를 가로지르는 벡터를 계산합니다.
-    auto viewportU = Vec3(viewportWidth, 0, 0);
-    auto viewportV = Vec3(0, -viewportHeight, 0);
+			const Point3 center(
+				gridX + 0.9 * RandomDouble(),
+				0.2,
+				gridZ + 0.9 * RandomDouble()
+			);
 
-    // 픽셀 간 수평 및 수직 델타 벡터를 계산합니다.
-    auto pixelDeltaU = viewportU / imageWidth;
-    auto pixelDeltaV = viewportV / imageHeight;
+			if ((center - Point3(4.0, 0.2, 0.0)).Length() > 0.9)
+			{
+				std::shared_ptr<Material> sphereMaterial;
 
-    // 왼쪽 위 픽셀의 위치를 계산합니다.
-    auto viewportUpperLeft = cameraCenter
-        - Vec3(0, 0, focalLength) - viewportU / 2 - viewportV / 2;
-    auto pixel00Loc = viewportUpperLeft + 0.5 * (pixelDeltaU + pixelDeltaV);
+				if (materialSelector < 0.8)
+				{
+					const Color albedo = Color::Random() * Color::Random();
+					sphereMaterial = std::make_shared<Lambertian>(albedo);
+				}
+				else if (materialSelector < 0.95)
+				{
+					const Color albedo = Color::Random(0.5, 1.0);
+					const double fuzz = RandomDouble(0.0, 0.5);
+					sphereMaterial = std::make_shared<Metal>(albedo, fuzz);
+				}
+				else
+				{
+					sphereMaterial = std::make_shared<Dielectric>(1.5);
+				}
 
-    // Render
-    std::cout << "P3\n" << imageWidth << " " << imageHeight << "\n255\n";
+				world.Add(std::make_shared<Sphere>(center, 0.2, sphereMaterial));
+			}
+		}
+	}
 
-    for (int j = 0; j < imageHeight; j++)
-    {
-        std::clog << "\rScanlines remaining: " << (imageHeight - j) << ' ' << std::flush;
-        for (int i = 0; i < imageWidth; i++)
-        {
-            auto pixelCenter = pixel00Loc + (i * pixelDeltaU) + (j * pixelDeltaV);
-            auto rayDirection = pixelCenter - cameraCenter;
-            Ray r(cameraCenter, rayDirection);
+	auto material1 = std::make_shared<Dielectric>(1.5);
+	world.Add(std::make_shared<Sphere>(Point3(0.0, 1.0, 0.0), 1.0, material1));
 
-            Color pixelColor = RayColor(r);
-            WriteColor(std::cout, pixelColor);
-        }
-    }
+	auto material2 = std::make_shared<Lambertian>(Color(0.4, 0.2, 0.1));
+	world.Add(std::make_shared<Sphere>(Point3(-4.0, 1.0, 0.0), 1.0, material2));
 
-    std::clog << "\rDone.                 \n";
+	auto material3 = std::make_shared<Metal>(Color(0.7, 0.6, 0.5), 0.0);
+	world.Add(std::make_shared<Sphere>(Point3(4.0, 1.0, 0.0), 1.0, material3));
+
+	Camera camera;
+
+	camera.aspectRatio = 16.0 / 9.0;
+	camera.imageWidth = 1200;
+	camera.samplesPerPixel = 500;
+	camera.maxDepth = 50;
+
+	camera.verticalFieldOfView = 20.0;
+	camera.lookFrom = Point3(13.0, 2.0, 3.0);
+	camera.lookAt = Point3(0.0, 0.0, 0.0);
+	camera.viewUp = Vec3(0.0, 1.0, 0.0);
+
+	camera.defocusAngle = 0.6;
+	camera.focusDistance = 10.0;
+
+	camera.Render(world);
+
+	return 0;
 }
