@@ -2,24 +2,26 @@
 #ifndef HITTABLE_H
 #define HITTABLE_H
 
+#include <memory>
 #include "Ray.h"
+#include "interval.h"
+
+class Material;
 
 class HitRecord
 {
 public:
-    void SetFaceNormal(const Ray& r, const Vec3& outwardNormal)
+    Point3 point;
+    Vec3 normal;
+    std::shared_ptr<Material> material;
+    double t = 0.0;
+    bool isFrontFace = false;
+
+    void SetFaceNormal(const Ray& ray, const Vec3& outwardNormal)
     {
-        // 히트 레코드 법선 벡터를 설정합니다.
-        // 참고: 매개변수 `outwardNormal`은 단위 길이를 가진다고 가정합니다.
-
-        bFrontFace = Dot(r.Direction(), outwardNormal) < 0;
-        Normal = bFrontFace ? outwardNormal : -outwardNormal;
+        isFrontFace = Dot(ray.Direction(), outwardNormal) < 0.0;
+        normal = isFrontFace ? outwardNormal : -outwardNormal;
     }
-
-    Point3 P;
-    Vec3 Normal;
-    double T;
-    bool bFrontFace;
 };
 
 class Hittable
@@ -27,7 +29,11 @@ class Hittable
 public:
     virtual ~Hittable() = default;
 
-    virtual bool Hit(const Ray& r, double rayTMin, double rayTMax, HitRecord& rec) const = 0;
+    virtual bool Hit(
+        const Ray& ray,
+        const Interval& rayT,
+        HitRecord& hitRecord
+    ) const = 0;
 };
 
 #endif

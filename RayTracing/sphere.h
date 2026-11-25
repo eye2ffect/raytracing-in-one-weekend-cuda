@@ -1,24 +1,28 @@
+#pragma once
 #ifndef SPHERE_H
 #define SPHERE_H
 
-#include "Hittable.h"
+#include "hittable.h"
+#include<memory>
+
+#include "interval.h"
 #include "Vec3.h"
+#include <cmath>
+#include <iostream>
 
 class Sphere : public Hittable
 {
 public:
-    Sphere(const Point3& center, double radius)
+
+
+    Sphere(const Point3& center, double radius, const std::shared_ptr<Material>& material)
         : mCenter(center)
         , mRadius(std::fmax(0.0, radius))
+        , mMaterial(material)
     {
     }
 
-    bool Hit(
-        const Ray& ray,
-        double rayTMin,
-        double rayTMax,
-        HitRecord& hitRecord
-    ) const override
+    bool Hit( const Ray& ray,  const Interval& rayT, HitRecord& hitRecord) const override
     {
         Vec3 originToCenter = mCenter - ray.Origin();
 
@@ -35,28 +39,33 @@ public:
         auto squareRootDiscriminant = std::sqrt(discriminant);
 
         // Find the nearest root that lies in the acceptable range
+        // 허용 가능한 범위 내에 있는 가장 가까운 근을 찾습니다
         auto root = (h - squareRootDiscriminant) / a;
-        if (root <= rayTMin || rayTMax <= root)
+        if (!rayT.Surrounds(root))
         {
             root = (h + squareRootDiscriminant) / a;
-            if (root <= rayTMin || rayTMax <= root)
+            if (!rayT.Surrounds(root))
             {
                 return false;
             }
         }
 
-        hitRecord.T = root;
-        hitRecord.P= ray.At(hitRecord.T);
+        hitRecord.t = root;
+        hitRecord.point = ray.At(hitRecord.t);
 
-        Vec3 outwardNormal = (hitRecord.P - mCenter) / mRadius;
+        Vec3 outwardNormal = (hitRecord.point - mCenter) / mRadius;
         hitRecord.SetFaceNormal(ray, outwardNormal);
+
+        hitRecord.material = mMaterial;
 
         return true;
     }
 
 private:
     Point3 mCenter;
-    double mRadius;
+    double mRadius = 0.0;
+    std::shared_ptr<Material> mMaterial;
 };
 
 #endif
+
